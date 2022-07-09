@@ -34,9 +34,10 @@ class Director
      */
     private $films;
 
-    public function __construct()
+    public function __construct(string $name)
     {
         $this->films = new ArrayCollection();
+        $this->setName($name);
     }
 
     public function getId(): ?int
@@ -96,6 +97,6 @@ class Director
     }
 
     public function __toString() {
-        return $this->Name;
+        return $this->getName();
     }
 }

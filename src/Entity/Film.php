@@ -2,6 +2,7 @@
 
 namespace App\Entity;
 
+use App\Command\Columns;
 use App\Repository\FilmRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -30,11 +31,6 @@ class Film
     private $ReleaseDate;
 
     /**
-     * @ORM\Column(type="array")
-     */
-    private $Genre = [];
-
-    /**
      * @ORM\Column(type="integer", nullable=true)
      */
     private $Duration;
@@ -54,10 +50,35 @@ class Film
      */
     private $Directors;
 
-    public function __construct()
+    /**
+     * @ORM\ManyToMany(targetEntity=Category::class, mappedBy="films")
+     */
+    private $Genres;
+
+    public function __construct(array $data = [])
     {
         $this->Actors = new ArrayCollection();
         $this->Directors = new ArrayCollection();
+        $this->Genres = new ArrayCollection();
+
+        if (sizeof($data)) {
+            $this->setTitle($data[Columns::Title])
+                ->setReleaseDate($data[Columns::ReleaseDate])
+                ->setDuration($data[Columns::Duration])
+                ->setProducer($data[Columns::Producer]);
+
+            foreach ($data[Columns::Genre] as $genre) {
+                $this->addGenre($genre);
+            }
+
+            foreach ($data[Columns::Actors] as $actor) {
+                $this->addActor($actor);
+            }
+
+            foreach ($data[Columns::Directors] as $director) {
+                $this->addDirector($director);
+            }
+        }
     }
 
     public function getId(): ?int
@@ -85,18 +106,6 @@ class Film
     public function setReleaseDate(\DateTimeInterface $ReleaseDate): self
     {
         $this->ReleaseDate = $ReleaseDate;
-
-        return $this;
-    }
-
-    public function getGenre(): ?array
-    {
-        return $this->Genre;
-    }
-
-    public function setGenre(array $Genre): self
-    {
-        $this->Genre = $Genre;
 
         return $this;
     }
@@ -174,6 +183,33 @@ class Film
     }
 
     public function __toString() {
-        return $this->Title;
+        return $this->getTitle();
+    }
+
+    /**
+     * @return Collection<int, Category>
+     */
+    public function getGenres(): Collection
+    {
+        return $this->Genres;
+    }
+
+    public function addGenre(Category $genre): self
+    {
+        if (!$this->Genres->contains($genre)) {
+            $this->Genres[] = $genre;
+            $genre->addFilm($this);
+        }
+
+        return $this;
+    }
+
+    public function removeGenre(Category $genre): self
+    {
+        if ($this->Genres->removeElement($genre)) {
+            $genre->removeFilm($this);
+        }
+
+        return $this;
     }
 }

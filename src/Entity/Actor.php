@@ -25,7 +25,7 @@ class Actor
     private $Name;
 
     /**
-     * @ORM\Column(type="date")
+     * @ORM\Column(type="date", nullable=true)
      */
     private $Birthdate;
 
@@ -44,9 +44,10 @@ class Actor
      */
     private $films;
 
-    public function __construct()
+    public function __construct(string $name)
     {
         $this->films = new ArrayCollection();
+        $this->setName($name);
     }
 
     public function getId(): ?int
@@ -130,6 +131,6 @@ class Actor
     }
 
     public function __toString() {
-        return $this->Name;
+        return $this->getName();
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Controller\Admin;
 
 use App\Entity\Actor;
+use App\Entity\Category;
 use App\Entity\Director;
 use App\Entity\Film;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Dashboard;
@@ -21,7 +22,7 @@ class DashboardController extends AbstractDashboardController
     {
         // redirect to some CRUD controller
         $adminUrlGenerator = $this->container->get(AdminUrlGenerator::class);
-        $controllers = ['film' => FilmCrudController::class, 'actor' => ActorCrudController::class, 'director' => DirectorCrudController::class];
+        $controllers = ['film' => FilmCrudController::class, 'actor' => ActorCrudController::class, 'director' => DirectorCrudController::class, 'genre' => CategoryCrudController::class];
         $selectedController = array_key_exists($object, $controllers) ? $controllers[$object] : null;
 
         return $selectedController ? $this->redirect($adminUrlGenerator->setController($selectedController)->generateUrl()) : parent::index();
@@ -40,5 +41,6 @@ class DashboardController extends AbstractDashboardController
         yield MenuItem::linkToCrud('Films', 'fa fa-list', Film::class);
         yield MenuItem::linkToCrud('Actors', 'fa fa-user', Actor::class);
         yield MenuItem::linkToCrud('Directors', 'fa fa-user', Director::class);
+        yield MenuItem::linkToCrud('Genres', 'fa fa-user', Category::class);
     }
 }
