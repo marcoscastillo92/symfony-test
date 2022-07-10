@@ -58,54 +58,23 @@ class LoadInfoCommand extends Command
                 $directorRepository = $this->entityManager->getRepository(Director::class);
                 $genreRepository = $this->entityManager->getRepository(Category::class);
 
-                foreach (array_chunk($allRows, 20, true) as $rows) {
-                    $actorSet = [];
-                    $directorSet = [];
-                    $genreSet = [];
+                foreach (array_chunk($allRows, 10, true) as $rows) {
 
                     foreach ($rows as $row) {
                         if(!$filmRepository->findOneBy(['Title' => $row[Columns::Title]])) {
-                            foreach (array_map('ltrim', explode(',', $row[Columns::Actors])) as $actorName) {
-                                if ($existingActor = $actorRepository->findOneBy(['Name' => $actorName])) {
-                                    $actorSet[] = $existingActor;
-                                } else {
-                                    $actor = new Actor($actorName);
-                                    $this->entityManager->persist($actor);
-                                    $actorSet[] = $actor;
-                                }
-                            }
-
-                            foreach (array_map('ltrim', explode(',', $row[Columns::Directors])) as $directorName) {
-                                if ($existingDirector = $directorRepository->findOneBy(['Name' => $directorName])) {
-                                    $directorSet[] = $existingDirector;
-                                } else {
-                                    $director = new Director($directorName);
-                                    $this->entityManager->persist($director);
-                                    $directorSet[] = $director;
-                                }
-                            }
-
-                            foreach (array_map('ltrim', explode(',', $row[Columns::Genre])) as $genreName) {
-                                if ($existingGenre = $genreRepository->findOneBy(['Name' => $genreName])) {
-                                    $genreSet[] = $existingGenre;
-                                } else {
-                                    $genre = new Category($genreName);
-                                    $this->entityManager->persist($genre);
-                                    $genreSet[] = $genre;
-                                }
-                            }
 
                             $filmInfo = $row;
                             $filmInfo[Columns::ReleaseDate] = DateTime::createFromFormat('Y-m-d', $filmInfo[Columns::ReleaseDate]);
-                            $filmInfo[Columns::Actors] = $actorSet;
-                            $filmInfo[Columns::Directors] = $directorSet;
-                            $filmInfo[Columns::Genre] = $genreSet;
+                            $filmInfo[Columns::Actors] = $this->getAndPersistRelated($actorRepository, $row[Columns::Actors], 'App\Entity\Actor');
+                            $filmInfo[Columns::Directors] = $this->getAndPersistRelated($directorRepository, $row[Columns::Directors], 'App\Entity\Director');
+                            $filmInfo[Columns::Genre] = $this->getAndPersistRelated($genreRepository, $row[Columns::Genre], 'App\Entity\Category');
                             $film = new Film($filmInfo);
                             $this->entityManager->persist($film);
                         }
                     }
 
                     $this->entityManager->flush();
+                    $this->entityManager->clear();
                 }
 
                 $output->writeln('--------------- SUCCESS --------------');
@@ -147,5 +116,22 @@ class LoadInfoCommand extends Command
         }
 
         return $result;
+    }
+
+    private function getAndPersistRelated(\Doctrine\ORM\EntityRepository $repository, string $stringList, string $className) : array
+    {
+        $resultSet = [];
+
+        foreach (array_map('ltrim', explode(',', $stringList)) as $name) {
+            if ($existingRecord = $repository->findOneBy(['Name' => $name])) {
+                $resultSet[] = $existingRecord;
+            } else {
+                $object = new $className($name);
+                $this->entityManager->persist($object);
+                $resultSet[] = $object;
+            }
+        }
+
+        return $resultSet;
     }
 }
