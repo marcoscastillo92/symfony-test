@@ -34,47 +34,51 @@ class LoadInfoCommand extends Command
     public function __construct(EntityManagerInterface $entityManager)
     {
         $this->entityManager = $entityManager;
-
+        $this->entityManager->getConnection()->getConfiguration()->setSQLLogger(null);
         parent::__construct();
     }
 
     protected function configure(): void
     {
-        $this->setHelp('This command allows you to load all data from csv')
+        $this->setHelp('This command allows you to load all data from csv, for large files run with --no-debug')
             ->addArgument('path', InputArgument::REQUIRED, 'Path to csv with data')
-            ->setDescription('Loads info from csv');
+            ->setDescription('Loads info from csv, for large files run with --no-debug');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $path = $input->getArgument('path');
-        $allRows = $this->getCsvAsArray($path);
+        $rows = $this->getCsvAsArray($path);
+        $rowSize = sizeof($rows);
 
-        if (sizeof($allRows) > 0) {
+        if ($rowSize > 0) {
+            if ($rowSize > 10 && !$input->getOption('no-debug')) {
+                throw new Error('--no-debug option is required to avoid run out of memory for large imports');
+            }
 
             try {
                 $filmRepository = $this->entityManager->getRepository(Film::class);
                 $actorRepository = $this->entityManager->getRepository(Actor::class);
                 $directorRepository = $this->entityManager->getRepository(Director::class);
                 $genreRepository = $this->entityManager->getRepository(Category::class);
+                $batchSize = 20;
 
-                foreach (array_chunk($allRows, 10, true) as $rows) {
-
-                    foreach ($rows as $row) {
-                        if(!$filmRepository->findOneBy(['Title' => $row[Columns::Title]])) {
-
-                            $filmInfo = $row;
-                            $filmInfo[Columns::ReleaseDate] = DateTime::createFromFormat('Y-m-d', $filmInfo[Columns::ReleaseDate]);
-                            $filmInfo[Columns::Actors] = $this->getAndPersistRelated($actorRepository, $row[Columns::Actors], 'App\Entity\Actor');
-                            $filmInfo[Columns::Directors] = $this->getAndPersistRelated($directorRepository, $row[Columns::Directors], 'App\Entity\Director');
-                            $filmInfo[Columns::Genre] = $this->getAndPersistRelated($genreRepository, $row[Columns::Genre], 'App\Entity\Category');
-                            $film = new Film($filmInfo);
-                            $this->entityManager->persist($film);
-                        }
+                foreach ($rows as $key => $row) {
+                    if(!$filmRepository->findOneBy(['Title' => $row[Columns::Title]])) {
+                        $filmInfo = $row;
+                        $filmInfo[Columns::ReleaseDate] = DateTime::createFromFormat('Y-m-d', $filmInfo[Columns::ReleaseDate]);
+                        $filmInfo[Columns::Actors] = $this->getAndPersistRelated($actorRepository, $row[Columns::Actors], 'App\Entity\Actor');
+                        $filmInfo[Columns::Directors] = $this->getAndPersistRelated($directorRepository, $row[Columns::Directors], 'App\Entity\Director');
+                        $filmInfo[Columns::Genre] = $this->getAndPersistRelated($genreRepository, $row[Columns::Genre], 'App\Entity\Category');
+                        $film = new Film($filmInfo);
+                        $filmRepository->add($film);
+                        $film = null;
                     }
 
-                    $this->entityManager->flush();
-                    $this->entityManager->clear();
+                    if ($key > 0 && $key % $batchSize == 0) {
+                        $this->entityManager->flush();
+                        $this->entityManager->clear();
+                    }
                 }
 
                 $output->writeln('--------------- SUCCESS --------------');
@@ -102,7 +106,6 @@ class LoadInfoCommand extends Command
                 $actualRow = [];
 
                 foreach ($correlation as $key => $value) {
-
                     $actualRow[$key] = $row[$value];
                 }
 
@@ -127,7 +130,7 @@ class LoadInfoCommand extends Command
                 $resultSet[] = $existingRecord;
             } else {
                 $object = new $className($name);
-                $this->entityManager->persist($object);
+                $repository->add($object);
                 $resultSet[] = $object;
             }
         }
