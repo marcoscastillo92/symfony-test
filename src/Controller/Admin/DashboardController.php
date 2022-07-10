@@ -20,7 +20,6 @@ class DashboardController extends AbstractDashboardController
      */
     public function index(string $object = ''): Response
     {
-        // redirect to some CRUD controller
         $adminUrlGenerator = $this->container->get(AdminUrlGenerator::class);
         $controllers = ['film' => FilmCrudController::class, 'actor' => ActorCrudController::class, 'director' => DirectorCrudController::class, 'genre' => CategoryCrudController::class];
         $selectedController = array_key_exists($object, $controllers) ? $controllers[$object] : null;
